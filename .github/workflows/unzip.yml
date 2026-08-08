@@ -17,7 +17,6 @@ jobs:
         run: |
           mkdir -p temp_extract
           unzip -o *.zip -d temp_extract
-          # Find where build.gradle or settings.gradle is and copy everything to root
           PROJECT_ROOT=$(find temp_extract -maxdepth 3 -name "build.gradle*" -o -name "settings.gradle*" | head -n 1 | xargs dirname)
           if [ -n "$PROJECT_ROOT" ]; then
             cp -r $PROJECT_ROOT/* .
@@ -34,13 +33,13 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
-      - name: Build APK
+      - name: Build APK (Fix KSP Crash)
         run: |
           chmod +x gradlew || true
           if [ -f "./gradlew" ]; then
-            ./gradlew assembleDebug
+            ./gradlew assembleDebug --no-daemon -Pksp.incremental=false
           else
-            gradle assembleDebug
+            gradle assembleDebug --no-daemon -Pksp.incremental=false
           fi
 
       - name: Upload APK
@@ -48,4 +47,3 @@ jobs:
         with:
           name: app-debug-apk
           path: '**/build/outputs/apk/debug/*.apk'
-
