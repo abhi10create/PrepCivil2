@@ -33,10 +33,11 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
-      - name: Build APK (Bypass Signing Error)
+      - name: Build APK (Fix KSP Headless Crash)
+        env:
+          GRADLE_OPTS: "-Djava.awt.headless=true -Dorg.gradle.daemon=false"
         run: |
           chmod +x gradlew || true
-          # Override custom signing configs so it uses default debug keystore
           if [ -f "./gradlew" ]; then
             ./gradlew assembleDebug --no-daemon -Pksp.incremental=false -Pandroid.injected.signing.store.file="" -x validateSigningDebug
           else
