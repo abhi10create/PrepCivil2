@@ -2,8 +2,6 @@ name: Auto Unzip and Build APK
 
 on:
   push:
-    paths:
-      - '*.zip'
   workflow_dispatch:
 
 jobs:
@@ -13,20 +11,32 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v4
 
-      - name: Extract and Move Files to Root
+      - name: Extract Zip if Present and Setup Root
         run: |
-          mkdir -p temp_extract
-          unzip -o *.zip -d temp_extract
-          PROJECT_ROOT=$(find temp_extract -maxdepth 3 -name "build.gradle*" -o -name "settings.gradle*" | head -n 1 | xargs dirname)
-          if [ -n "$PROJECT_ROOT" ]; then
-            cp -r $PROJECT_ROOT/* .
-            cp -r $PROJECT_ROOT/.* . 2>/dev/null || true
+          # Find any zip file in the root directory
+          ZIP_FILE=$(find . -maxdepth 1 -name "*.zip" | head -n 1)
+          
+          if [ -n "$ZIP_FILE" ]; then
+            echo "Found zip file: $ZIP_FILE. Extracting..."
+            mkdir -p temp_extract
+            unzip -o "$ZIP_FILE" -d temp_extract
+            
+            # Locate project root inside extracted contents
+            PROJECT_ROOT=$(find temp_extract -maxdepth 3 -name "build.gradle*" -o -name "settings.gradle*" | head -n 1 | xargs dirname)
+            if [ -n "$PROJECT_ROOT" ]; then
+              echo "Moving files from $PROJECT_ROOT to repo root..."
+              cp -r $PROJECT_ROOT/* .
+              cp -r $PROJECT_ROOT/.* . 2>/dev/null || true
+            fi
+            rm -rf temp_extract
+          else
+            echo "No zip file found. Proceeding with repository files directly."
           fi
-          rm -rf temp_extract
 
       - name: Generate Dummy Keystore
         run: |
           keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          mkdir -p ./app
           cp debug.keystore ./app/ 2>/dev/null || true
 
       - name: Setup JDK 17
@@ -54,3 +64,4 @@ jobs:
         with:
           name: app-debug-apk
           path: '**/build/outputs/apk/debug/*.apk'
+
