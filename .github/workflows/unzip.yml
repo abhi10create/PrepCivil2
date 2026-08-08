@@ -1,0 +1,37 @@
+name: Auto Unzip and Build APK
+
+on:
+  push:
+    paths:
+      - '*.zip'
+  workflow_dispatch:
+
+jobs:
+  unzip-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Extract ZIP File
+        run: |
+          unzip -o *.zip -d extracted_code
+          rsync -av extracted_code/*/ . || true
+          rm -rf extracted_code
+
+      - name: Setup JDK
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Build APK
+        run: |
+          chmod +x gradlew || true
+          ./gradlew assembleDebug || gradle build
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
