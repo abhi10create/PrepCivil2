@@ -19,13 +19,15 @@ jobs:
             mkdir -p temp_extract
             unzip -o "$ZIP_FILE" -d temp_extract
             
-            PROJECT_ROOT=$(find temp_extract -maxdepth 3 -name "build.gradle*" -o -name "settings.gradle*" | head -n 1 | xargs dirname)
+            PROJECT_ROOT=$(find temp_extract -maxdepth 4 -name "build.gradle*" -o -name "settings.gradle*" | head -n 1 | xargs dirname)
             if [ -n "$PROJECT_ROOT" ]; then
               echo "Moving files from $PROJECT_ROOT to repo root..."
               cp -r $PROJECT_ROOT/* .
               cp -r $PROJECT_ROOT/.* . 2>/dev/null || true
             fi
             rm -rf temp_extract
+          else
+            echo "No zip file found. Proceeding with existing repo files."
           fi
 
       - name: Setup JDK 17
@@ -38,9 +40,15 @@ jobs:
         uses: gradle/actions/setup-gradle@v3
 
       - name: Build Standard Debug APK
+        env:
+          GRADLE_OPTS: "-Djava.awt.headless=true -Dorg.gradle.daemon=false"
         run: |
-          chmod +x gradlew || true
-          ./gradlew assembleDebug --no-daemon
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+            ./gradlew assembleDebug --no-daemon
+          else
+            gradle assembleDebug --no-daemon
+          fi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
