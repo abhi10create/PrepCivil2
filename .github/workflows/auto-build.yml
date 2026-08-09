@@ -1,0 +1,63 @@
+name: Auto Unzip and Build APK
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  unzip-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Extract Zip if Present and Setup Root
+        run: |
+          ZIP_FILE=$(find . -maxdepth 1 -name "*.zip" | head -n 1)
+          if [ -n "$ZIP_FILE" ]; then
+            echo "Found zip file: $ZIP_FILE. Extracting..."
+            mkdir -p temp_extract
+            unzip -o "$ZIP_FILE" -d temp_extract
+            
+            PROJECT_ROOT=$(find temp_extract -maxdepth 3 -name "build.gradle*" -o -name "settings.gradle*" | head -n 1 | xargs dirname)
+            if [ -n "$PROJECT_ROOT" ]; then
+              echo "Moving files from $PROJECT_ROOT to repo root..."
+              cp -r $PROJECT_ROOT/* .
+              cp -r $PROJECT_ROOT/.* . 2>/dev/null || true
+            fi
+            rm -rf temp_extract
+          else
+            echo "No zip file found. Proceeding with repository files directly."
+          fi
+
+      - name: Generate Dummy Keystore
+        run: |
+          keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          mkdir -p ./app
+          cp debug.keystore ./app/ 2>/dev/null || true
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Build APK (Bypass KSP Exception)
+        env:
+          GRADLE_OPTS: "-Djava.awt.headless=true -Dorg.gradle.daemon=false"
+        run: |
+          chmod +x gradlew || true
+          if [ -f "./gradlew" ]; then
+            ./gradlew assembleDebug --no-daemon -Pksp.incremental=false -x kspDebugKotlin -x validateSigningDebug
+          else
+            gradle assembleDebug --no-daemon -Pksp.incremental=false -x kspDebugKotlin -x validateSigningDebug
+          fi
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: '**/build/outputs/apk/debug/*.apk'
