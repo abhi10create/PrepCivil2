@@ -43,11 +43,11 @@ jobs:
         env:
           GRADLE_OPTS: "-Djava.awt.headless=true -Dorg.gradle.daemon=false"
         run: |
+          chmod +x gradlew || true
           if [ -f "./gradlew" ]; then
-            chmod +x ./gradlew
-            ./gradlew assembleDebug --no-daemon
+            ./gradlew assembleDebug --no-daemon -Pksp.incremental=false -x kspDebugKotlin -x validateSigningDebug
           else
-            gradle assembleDebug --no-daemon
+            gradle assembleDebug --no-daemon -Pksp.incremental=false -x kspDebugKotlin -x validateSigningDebug
           fi
 
       - name: Upload APK
